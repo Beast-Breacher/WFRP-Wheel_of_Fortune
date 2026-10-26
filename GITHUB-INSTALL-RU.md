@@ -2,7 +2,7 @@
 
 ## 1. Подготовьте репозиторий
 
-Целевой репозиторий: https://github.com/Beast-Breacher/WFRP-reports . Для установки по Manifest URL release assets должны скачиваться без авторизации. Не загружайте всю папку `C:\Atgrav\dist`: нужен только этот проект `foundry-module`. Если в репозитории уже есть файлы, сначала клонируйте его и перенесите проект в рабочую копию с сохранением существующей истории.
+Целевой репозиторий: https://github.com/Beast-Breacher/WFRP-Wheel_of_Fortune . Для установки по Manifest URL release assets должны скачиваться без авторизации. Не загружайте всю папку `C:\Atgrav\dist`: нужен только этот проект `foundry-module`. Если в репозитории уже есть файлы, сначала клонируйте его и перенесите проект в рабочую копию с сохранением существующей истории.
 
 Для пустого репозитория откройте терминал в папке проекта и выполните команды:
 
@@ -11,7 +11,7 @@ git init
 git add .
 git commit -m "Initial Foundry VTT module"
 git branch -M main
-git remote add origin https://github.com/Beast-Breacher/WFRP-reports.git
+git remote add origin https://github.com/Beast-Breacher/WFRP-Wheel_of_Fortune.git
 git push -u origin main
 ```
 
@@ -19,12 +19,12 @@ git push -u origin main
 
 ## 2. Создайте первый выпуск
 
-Убедитесь, что в `module.json` и `package.json` стоит `0.1.1`. Затем:
+Убедитесь, что в `module.json` и `package.json` стоит `0.1.2`. Затем:
 
 ```powershell
 npm test
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 Во вкладке **Actions** запустится workflow `Test and release Foundry module`. После успешных тестов в **Releases** появятся два вложения:
@@ -41,12 +41,12 @@ git push origin v0.1.1
 Ссылка будет такой:
 
 ```text
-https://github.com/Beast-Breacher/WFRP-reports/releases/latest/download/module.json
+https://github.com/Beast-Breacher/WFRP-Wheel_of_Fortune/releases/latest/download/module.json
 ```
 
 На экране настройки Foundry откройте **Add-on Modules → Install Module → Manifest URL**, вставьте ссылку и нажмите Install. Затем войдите в мир WFRP4e и включите модуль в **Manage Modules**.
 
-Для обновлений сохраняйте тот же id и тот же адрес `releases/latest/download/module.json`. При новом выпуске измените версию в обоих JSON, создайте соответствующий новый тег, например `v0.1.2`, и отправьте его на GitHub.
+Для обновлений сохраняйте тот же id и тот же адрес `releases/latest/download/module.json`. При новом выпуске измените версию в обоих JSON, создайте соответствующий новый тег, например `v0.1.3`, и отправьте его на GitHub. При отправке изменений в `main` текущий workflow также запускает тесты и создаёт выпуск, если версии с таким тегом ещё нет.
 
 ## 4. Ручная сборка и выпуск
 
@@ -54,10 +54,10 @@ https://github.com/Beast-Breacher/WFRP-reports/releases/latest/download/module.j
 
 ```powershell
 npm test
-node tools/release.mjs --repo Beast-Breacher/WFRP-reports
+node tools/release.mjs --repo Beast-Breacher/WFRP-Wheel_of_Fortune
 ```
 
-В `dist/` появятся ZIP и манифест. Создайте GitHub Release с тегом `v0.1.1` и приложите **оба файла**. Проверьте, что `download` внутри вложенного `module.json` указывает на существующий ZIP этого выпуска.
+В `dist/` появятся ZIP и манифест. Создайте GitHub Release с тегом `v0.1.2` и приложите **оба файла**. Проверьте, что `download` внутри вложенного `module.json` указывает на существующий ZIP этого выпуска.
 
 Без `--repo` команда создаёт пакет только для ручной локальной установки; в нём нет выдуманных URL. Готовый локальный ZIP также можно распаковать непосредственно в `Data/modules/wfrp4e-wheel-of-destiny/`.
 
@@ -74,3 +74,4 @@ C:\Users\akurochkin\AppData\Local\FoundryVTT\Data\modules\wfrp4e-wheel-of-destin
 Создайте или используйте тестовый мир WFRP4e. Включите модуль и откройте его через параметры модуля или макрос из README. При ошибке откройте F12 → Console и сохраните сообщение с префиксом `wfrp4e-wheel-of-destiny`, версию Foundry и версию системы.
 
 Оригинальная desktop-программа и сборки v5/v6 остаются самостоятельными версиями. Новому модулю не нужны их EXE, музыка, изображения или PDF.
+
