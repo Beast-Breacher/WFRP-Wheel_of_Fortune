@@ -1,0 +1,37 @@
+name: Test and release Foundry module
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run generator and integration tests
+        run: npm test
+      - name: Package module and versioned manifest
+        run: node tools/release.mjs --repo "$GITHUB_REPOSITORY"
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundry-module
+          path: dist/*
+      - name: Publish versioned release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('module.json','utf8')).version")
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; increase module.json version for the next release."
+          else
+            gh release create "$TAG" dist/module.json dist/wfrp4e-wheel-of-destiny.zip --target "$GITHUB_SHA" --title "Колесо Судьбы $TAG" --generate-notes
+          fi

@@ -1,0 +1,6 @@
+<section class="wod-shell">
+  <nav class="wod-tabs" aria-label="Генераторы">
+    {{#each tabs}}<button type="button" data-action="run" data-command="tab" data-tab="{{id}}" class="{{#if active}}active{{/if}}" aria-pressed="{{active}}">{{label}}</button>{{/each}}
+  </nav>
+  <div class="wod-body">{{{body}}}</div>
+</section>

@@ -1,0 +1,14 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const root = path.resolve(__dirname, '../..');
+const XLSX = require(path.join(root, 'xlsx.full.min.js'));
+const source = path.join(root, 'release/WFRP_WheelOfDestiny_Calendar_v6_portable/uploaded_table.xlsx');
+const wb = XLSX.read(fs.readFileSync(source), {type:'buffer'});
+const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1,defval:''});
+const careers = rows.slice(1).filter(r=>r[1]).map(r=>({id:String(r[0]),name:r[1],class:r[2],source:r[3],races:r[4].split(';').map(s=>s.trim()),restriction:r[5]||''}));
+const html = fs.readFileSync(path.join(root,'wfrp_career_generator.html'),'utf8');
+const context = {};
+vm.runInNewContext(html.slice(html.indexOf('const transitions ='),html.indexOf('let parsedData ='))+';this.transitions=transitions;',context);
+fs.writeFileSync(path.join(__dirname,'../data/careers.js'),'export default '+JSON.stringify({careers,transitions:context.transitions},null,2)+';\n');
+console.log(`Exported ${careers.length} careers, including High Elf restrictions.`);
