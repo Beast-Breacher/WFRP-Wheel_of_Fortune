@@ -1,8 +1,15 @@
 import T from '../data/character-tables.js';
 import W from '../data/weather-tables.js';
 import C from '../data/careers.js';
+import L from '../data/localized-names.js';
+import R from '../data/regional-names.js';
+import K from '../data/kislev-names.js';
 
-export const races = {Human:'Человек',Dwarf:'Дворф',Halfling:'Полурослик','High Elf':'Высший эльф','Wood Elf':'Лесной эльф',Gnome:'Гном'};
+const N={...T,...L};
+export const humanNamePools={...R,Kislev:K};
+export const humanCultures={Empire:'Имперец',Tilea:'Тилиец',Estalia:'Эсталиец',Kislev:'Кислевит'};
+export const cultureForProvince=province=>({'Тилия':'Tilea','Эсталия':'Estalia','Кислев':'Kislev'}[province]??'Empire');
+export const races = {Human:'Человек',Dwarf:'Гном',Halfling:'Полурослик','High Elf':'Высший эльф','Wood Elf':'Лесной эльф',Gnome:'Карлик'};
 export const careerRaces = ['Люди','Гномы','Карлики','Полурослики','Высшие эльфы','Лесные эльфы','Огры'];
 export const {careers, transitions} = C;
 export const climates = Object.values(W.CLIMATES);
@@ -18,20 +25,25 @@ export class Generator {
   table(rows,roll=this.int(1,100)) { return (rows.find(r=>r[0]<=roll && roll<=r[1]) ?? rows.at(-1))[2]; }
   years(n) { return `${n} ${n%100>=11&&n%100<=14?'лет':n%10===1?'год':[2,3,4].includes(n%10)?'года':'лет'}`; }
   gender(g) { return ['Male','Female'].includes(g)?g:this.pick(['Male','Female']); }
-  name(race,gender='Random',feature=null) {
+  name(race,gender='Random',feature=null,culture='Empire') {
     if(!Object.hasOwn(races,race)) throw new Error('Неизвестный народ');
+    if(race==='Human'&&!Object.hasOwn(humanCultures,culture))throw new Error('Неизвестная культура имён');
     const g=this.gender(gender),f=g==='Female';
     let name;
     if(race==='Dwarf') {
-      name=this.random()<0.5?this.pick(f?T.DWARF_SAMPLE_NAMES_F:T.DWARF_SAMPLE_NAMES):this.pick(f?T.DWARF_PREFIXES_F:T.DWARF_PREFIXES_M)+this.pick(f?T.DWARF_SUFFIXES_F:T.DWARF_SUFFIXES_M);
+      name=this.random()<0.5?this.pick(f?N.DWARF_SAMPLE_NAMES_F:N.DWARF_SAMPLE_NAMES):this.pick(f?N.DWARF_PREFIXES_F:N.DWARF_PREFIXES_M)+this.pick(f?N.DWARF_SUFFIXES_F:N.DWARF_SUFFIXES_M);
       name+=' '+this.pick(T.DWARF_CLAN_NAMES)[f?1:0];
     } else if(race==='Halfling'||race==='Gnome') {
-      const p=race.toUpperCase(); name=this.pick(T[p+'_NAMES_'+(f?'F':'M')])+' '+this.pick(T[p+'_CLAN_NAMES']);
+      const p=race.toUpperCase(); name=this.pick(N[p+'_NAMES_'+(f?'F':'M')])+' '+this.pick(N[p+'_CLAN_NAMES']);
     } else if(race==='High Elf'||race==='Wood Elf') {
       const p=race==='High Elf'?'HIGH':'WOOD';
       name=this.random()<0.5?this.pick(T['ELF_'+p+'_SAMPLE_'+(f?'F':'M')]):this.pick(T.ELF_FIRST_SYLLABLES)+(this.random()<0.6?this.pick(T.ELF_SECOND_SYLLABLES):'')+this.pick(T['ELF_ENDINGS_'+p+'_'+(f?'F':'M')]);
-    } else name=this.pick(f?T.NAMES_F:T.NAMES_M)+' '+this.pick(T.FEATURE_SURNAMES[feature]??T.SURNAMES);
-    return {name,gender:g};
+    } else {
+      const pool=humanNamePools[culture];
+      const surnames=culture==='Kislev'?(f?pool.surnamesFemale:pool.surnamesMale):pool.surnames;
+      name=this.pick(f?pool.female:pool.male)+' '+this.pick((culture==='Empire'?N.FEATURE_SURNAMES[feature]:null)??surnames);
+    }
+    return {name,gender:g,...(race==='Human'?{culture}:{})};
   }
   birth(age=25,year=2512) {
     if(!Number.isInteger(year))throw new Error('Укажите целый текущий год в настройках модуля');
@@ -57,18 +69,19 @@ export class Generator {
   }
   handedness() { const r=this.int(1,100);return r===1?'Левша, +1 уровень таланта «Амбидекстр»':r<=20?'Левша':r<=95?'Правша':r<=99?'Правша, +1 уровень таланта «Амбидекстр»':'Одинаково владеет обеими руками, +2 уровня таланта «Амбидекстр»'; }
   doom() { return `<b>Мотивация:</b> ${this.pick(['Честолюбие','Побег','Нажива','Патриотизм','Фанатизм','Верность','Помощь другим','Искупление','Первооткрывательство'])}<br><b>Роковое пророчество:</b> <i>«${this.pick(T.dooms)}»</i>`; }
-  humanOrigin(province='Random') {
+  humanOriginDetails(province='Random') {
     if(province==='Random') province=this.table([[1,5,'Аверланд'],[6,10,'Хохланд'],[11,15,'Мидденланд'],[16,20,'Нордланд'],[21,25,'Остермарк'],[26,30,'Остланд'],[31,55,'Рейкланд'],[56,70,'Альтдорф'],[71,75,'Штирланд'],[76,80,'Талабекланд'],[81,85,'Виссенланд'],[86,90,'Нульн'],[91,95,'Пустоши'],[96,100,'Вне Империи']]);
     if(province==='Вне Империи') province=this.table([[1,25,'Бретония'],[26,45,'Кислев'],[46,70,'Эсталия'],[71,90,'Тилия'],[91,95,'Пограничные Принцы'],[96,100,'Из дальних земель']]);
-    const cities=T.PROVINCE_CITIES[province];if(!cities)return escapeHtml(province);
+    const cities=T.PROVINCE_CITIES[province];if(!cities)return {province,city:null,text:escapeHtml(province)};
     let city=this.pick(cities);if(!['Альтдорф','Нульн','Из дальних земель'].includes(province)&&this.int(1,100)<=15)city='Небольшой городок, деревня, хутор или ферма';
-    return `${city}, ${province}`;
+    return {province,city,text:`${city}, ${province}`};
   }
+  humanOrigin(province='Random') { return this.humanOriginDetails(province).text; }
   origin(race,origin='Random') {
     if(origin!=='Random'&&!Object.hasOwn(T.PROVINCE_CITIES,origin))return `<b>Место рождения:</b> ${escapeHtml(origin)} (выбрано вручную)`;
     let place;
     if(race==='Human')place=this.humanOrigin(origin);
-    else if(race==='Dwarf')place=this.table([[1,10,'Карак Норн (Серые горы)'],[11,20,'Карак Изор (Убежища)'],[21,30,'Карак Хирн (Чёрные горы)'],[31,40,'Карак Кадрин (Краесветные горы)'],[41,85,'Караз-а-Карак (Краесветные горы)'],[86,90,'Жуфбар (Краесветные горы)'],[91,100,'Другая крепь дворфов']]);
+    else if(race==='Dwarf')place=this.table([[1,10,'Карак Норн (Серые горы)'],[11,20,'Карак Изор (Убежища)'],[21,30,'Карак Хирн (Чёрные горы)'],[31,40,'Карак Кадрин (Краесветные горы)'],[41,85,'Караз-а-Карак (Краесветные горы)'],[86,90,'Жуфбар (Краесветные горы)'],[91,100,'Другая крепь гномов']]);
     else if(race==='Wood Elf')place=this.table([[1,5,'Поселение людей'],[6,10,'Бретония'],[11,20,'Великий Лес'],[21,30,'Рейквальдский Лес'],[31,70,'Лес Лорелорн (Эонир)'],[71,100,'Атель-Лорен (Асрай)']]);
     else if(race==='High Elf') {
       place=this.table([[1,5,'Великий Лес'],[6,10,'Рейквальдский Лес'],[11,20,'Поселение людей'],[21,70,'Ультуан'],[71,85,'Альтдорф'],[86,100,'Мариенбург']]);
@@ -109,12 +122,16 @@ export class Generator {
     if(!Number.isInteger(roll)||roll<1||roll>100)throw new Error('Бросок должен быть от 1 до 100');
     return {roll,cursed:roll<=5,html:roll<=5?`<p class="wod-curse" style="color:#c33b46;font-weight:600"><strong style="font-weight:600">d100 = ${roll}<br>В жилах асура пробудилось проклятое наследие Аэнариона. Древняя кровь отозвалась внутренней тьмой, которая отныне следует за ним, словно неотступная тень.</strong></p>`:''};
   }
-  character({race='Human',gender='Random',age=25,origin='Random',burden=false,year=2512}={}) {
+  character({race='Human',gender='Random',age=25,origin='Random',burden=false,year=2512,culture='Auto'}={}) {
     if(!Number.isInteger(age)||age<1||age>5000)throw new Error('Возраст должен быть целым числом от 1 до 5000');
     if(!Object.hasOwn(races,race))throw new Error('Неизвестный народ');
-    const g=this.gender(gender),build=this.build(race,g),name=this.name(race,g,build.features[0]);
+    const g=this.gender(gender),build=this.build(race,g);
+    const birthplace=race==='Human'?this.humanOriginDetails(origin):null;
+    const resolvedCulture=culture==='Auto'?cultureForProvince(birthplace?.province):culture;
+    const name=this.name(race,g,build.features[0],resolvedCulture);
+    const originHtml=birthplace?`<b>Место рождения:</b> ${birthplace.text}`:this.origin(race,origin);
     const curse=burden&&race==='High Elf'&&g==='Male'?this.curse():{cursed:false,html:''};
-    return {...name,race,html:`<h2>${escapeHtml(name.name)} (${g==='Male'?'мужчина':'женщина'}, ${races[race]})</h2><p>${this.birth(age,year)}</p>${curse.html}<p>${build.html}</p><p><b>Ведущая рука:</b> ${this.handedness()}</p><p>${this.doom()}</p><p>${this.origin(race,origin)}</p><p>${this.family(race,age)}</p><p>${this.spouse(age)}</p><p>${this.secrets()}</p>`,cursed:curse.cursed};
+    return {...name,race,birthplace,html:`<h2>${escapeHtml(name.name)} (${g==='Male'?'мужчина':'женщина'}, ${races[race]})</h2><p>${this.birth(age,year)}</p>${curse.html}<p>${build.html}</p><p><b>Ведущая рука:</b> ${this.handedness()}</p><p>${this.doom()}</p><p>${originHtml}</p><p>${this.family(race,age)}</p><p>${this.spouse(age)}</p><p>${this.secrets()}</p>`,cursed:curse.cursed};
   }
   career(race,id) {
     const source=careers.find(c=>c.id===id);if(!source||!source.races.includes(race))throw new Error('Выберите карьеру выбранного народа');

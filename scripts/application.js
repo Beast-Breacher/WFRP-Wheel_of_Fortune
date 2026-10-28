@@ -1,4 +1,5 @@
-import {Generator,careers,careerRaces,races,transitions,climates,months,provinces,monthlyWeather,escapeHtml as esc} from './generators.js';
+import {Generator,careers,careerRaces,races,humanCultures,transitions,climates,months,provinces,monthlyWeather,escapeHtml as esc} from './generators.js';
+import {saveWeatherPage,validateWeatherYear} from './weather-journal.js';
 
 export const MODULE_ID='wfrp4e-wheel-of-destiny';
 const {ApplicationV2,HandlebarsApplicationMixin}=foundry.applications.api;
@@ -14,7 +15,7 @@ export class WheelOfDestiny extends HandlebarsApplicationMixin(ApplicationV2) {
   static PARTS={main:{template:`modules/${MODULE_ID}/templates/generator.hbs`}};
   constructor(options={}) {
     super(options);this.tab='career';this.outputs={};this.generator=new Generator();
-    this.values={careerRace:'Люди',careerId:'11',race:'Human',gender:'Random',age:25,origin:'Random',burden:false,nameRace:'Human',nameGender:'Random',climate:'Cfb',month:'jahrdrung',night:'same',search:'',actorId:'',audience:'gm'};
+    this.values={careerRace:'Люди',careerId:'11',race:'Human',gender:'Random',age:25,origin:'Random',humanCulture:'Auto',burden:false,nameRace:'Human',nameGender:'Random',nameCulture:'Empire',climate:'Cfb',month:'jahrdrung',weatherYear:game.settings.get(MODULE_ID,'year'),night:'same',search:'',actorId:'',audience:'gm'};
   }
   async _prepareContext(options) {
     const context=await super._prepareContext(options);
@@ -48,14 +49,15 @@ export class WheelOfDestiny extends HandlebarsApplicationMixin(ApplicationV2) {
       return `<label>Поиск по карьере, народу или источнику<input type="search" data-field="search" value="${esc(v.search)}"></label><p>Карьер: ${filtered.length} из ${careers.length}</p><div class="wod-scroll"><table><thead><tr><th>Группа</th><th>Карьера</th><th>Народы</th><th>Источник</th><th>Ограничения Высших эльфов</th></tr></thead><tbody>${filtered.map(c=>`<tr><td>${esc(c.class)}</td><td>${esc(c.name)}</td><td>${esc(c.races.join(', '))}</td><td>${esc(c.source)}</td><td>${esc(c.restriction)}</td></tr>`).join('')}</tbody></table></div>`;
     } else if(this.tab==='background') {
       body=`<div class="wod-controls">${select('race','Народ',Object.entries(races),v.race)}${select('gender','Пол',[['Random','Случайный'],['Male','Мужчина'],['Female','Женщина']],v.gender)}<label>Возраст<input data-field="age" type="number" min="1" max="5000" value="${esc(v.age)}"></label>${select('origin','Происхождение',[['Random','Случайное'],...provinces],v.origin)}</div>`;
+      if(v.race==='Human')body+=`<div class="wod-controls">${select('humanCulture','Культура имён',[['Auto','По месту рождения'],...Object.entries(humanCultures)],v.humanCulture)}</div>`;
       if(v.race==='High Elf'&&v.gender==='Male')body+=`<label class="wod-check"><input data-field="burden" type="checkbox" ${v.burden?'checked':''}>Бремя детей Азуриана</label>`;
       body+=note('Модификаторы из неофициального пакета выводятся как рекомендации. Генерация не меняет характеристики персонажа.');
       body+=`<div class="wod-actions">${button('generate','Сгенерировать всё')}${[['birth','Рождение'],['build','Внешность'],['hand','Ведущая рука'],['doom','Мотивация и рок'],['origin','Место рождения'],['family','Семья'],['spouse','Супруг и дети'],['secrets','Тайна']].map(([id,label])=>button('partial',label,`data-part="${id}"`)).join('')}</div>`;
-    } else if(this.tab==='names')body=`<div class="wod-controls">${select('nameRace','Народ',Object.entries(races),v.nameRace)}${select('nameGender','Пол',[['Random','Случайный'],['Male','Мужчина'],['Female','Женщина']],v.nameGender)}</div>${button('generate','Сгенерировать имя')}`;
-    else if(this.tab==='weather')body=`<div class="wod-controls">${select('climate','Климат',climates.map(c=>[c.code,`${c.code} — ${c.name}`]),v.climate)}${select('month','Месяц',months.map(m=>[m.code,`${m.name} — ${m.days} дня`]),v.month)}${select('night','Ночная температура',[['same','Общий бросок с днём'],['reroll','Отдельный бросок']],v.night)}</div>${button('generate','Сгенерировать месяц')}`;
+    } else if(this.tab==='names')body=`<div class="wod-controls">${select('nameRace','Народ',Object.entries(races),v.nameRace)}${select('nameGender','Пол',[['Random','Случайный'],['Male','Мужчина'],['Female','Женщина']],v.nameGender)}${v.nameRace==='Human'?select('nameCulture','Культура имён',Object.entries(humanCultures),v.nameCulture):''}</div>${button('generate','Сгенерировать имя')}`;
+    else if(this.tab==='weather')body=`<div class="wod-controls">${select('climate','Климат',climates.map(c=>[c.code,`${c.code} — ${c.name}`]),v.climate)}${select('month','Месяц',months.map(m=>[m.code,`${m.name} — ${m.days} дня`]),v.month)}<label>Год И.К.<input data-field="weatherYear" type="number" min="1" max="9999" step="1" value="${esc(v.weatherYear)}"></label>${select('night','Ночная температура',[['same','Общий бросок с днём'],['reroll','Отдельный бросок']],v.night)}</div>${button('generate','Сгенерировать месяц')}`;
     if(out) {
       body+=`<div class="wod-actions">${button('copy','Копировать всё')}${select('audience','Отправка в чат',[['gm','Себе и ведущему'],['self','Только себе'],['public','Всем']],v.audience)}${button('chat','Отправить в чат')}`;
-      if(game.user.isGM)body+=button('journal','Создать запись журнала');
+      if(game.user.isGM)body+=button('journal',this.tab==='weather'?'Добавить в журнал «Погода»':'Создать запись журнала');
       if(this.tab==='background')body+=`${select('actorId','Персонаж',[['','Выберите персонажа'],...actorList().map(a=>[a.id,a.name])],v.actorId)}${button('biography','Добавить в биографию')}`;
       body+=`</div><div class="wod-output" aria-live="polite">${out.html}</div>`;
     }
@@ -71,12 +73,12 @@ export class WheelOfDestiny extends HandlebarsApplicationMixin(ApplicationV2) {
     if(command==='tab'){this.tab=data.tab;return this.render({force:true});}
     if(command==='generate') {
       let out;
-      if(this.tab==='background')out=g.character({race:v.race,gender:v.gender,age:Number(v.age),origin:v.origin,burden:v.burden,year:game.settings.get(MODULE_ID,'year')});
-      else if(this.tab==='names'){const n=g.name(v.nameRace,v.nameGender);out={...n,html:`<h2 class="wod-name">${esc(n.name)}</h2><p>${races[v.nameRace]}; ${n.gender==='Male'?'мужчина':'женщина'}</p>`};}
+      if(this.tab==='background')out=g.character({race:v.race,gender:v.gender,age:Number(v.age),origin:v.origin,culture:v.humanCulture,burden:v.burden,year:game.settings.get(MODULE_ID,'year')});
+      else if(this.tab==='names'){const n=g.name(v.nameRace,v.nameGender,null,v.nameCulture);out={...n,html:`<h2 class="wod-name">${esc(n.name)}</h2><p>${races[v.nameRace]}; ${n.gender==='Male'?'мужчина':'женщина'}${n.culture?'; '+humanCultures[n.culture]:''}</p>`};}
       else if(this.tab==='career'){
         const result=g.career(v.careerRace,v.careerId),c=result.career;
         out={...result,html:`<p>d100: <b>${result.roll}</b>. Группа: ${result.group}</p>${c?`<h2>${esc(c.name)}</h2><p>${esc(c.source)}</p>${note(v.careerRace==='Высшие эльфы'?c.restriction:'')}`:note('В этой группе нет карьер для выбранного народа.')}<p>Народ: ${esc(v.careerRace)}</p>`};
-      } else if(this.tab==='weather'){const report=monthlyWeather(v.climate,v.month,v.night,g);out={report,html:weatherHtml(report)};}
+      } else if(this.tab==='weather'){const year=validateWeatherYear(v.weatherYear),report={...monthlyWeather(v.climate,v.month,v.night,g),year};out={report,html:weatherHtml(report)};}
       if(out)this.outputs[this.tab]=out;
       return this.render({force:true});
     }
@@ -98,7 +100,12 @@ export class WheelOfDestiny extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if(command==='journal') {
       if(!game.user.isGM)throw new Error('Журнал создаёт ведущий');
-      await JournalEntry.create({name:`Колесо Судьбы — ${labels[this.tab]}`,pages:[{name:labels[this.tab],type:'text',text:{content:out.html,format:1}}],ownership:{default:0}});ui.notifications.info('Создана приватная запись журнала');
+      if(this.tab==='weather') {
+        await saveWeatherPage(out.report,out.html);
+        ui.notifications.info('Страница добавлена в журнал «Погода»');
+      } else {
+        await JournalEntry.create({name:`Колесо Судьбы — ${labels[this.tab]}`,pages:[{name:labels[this.tab],type:'text',text:{content:out.html,format:1}}],ownership:{default:0}});ui.notifications.info('Создана приватная запись журнала');
+      }
     }
     if(command==='biography') {
       const actor=game.actors.get(v.actorId);if(!actor?.isOwner||!['character','npc'].includes(actor.type))throw new Error('Выберите принадлежащего вам персонажа');
@@ -116,5 +123,5 @@ export function weatherHtml(report) {
   const {month,climate,days}=report,tr=month.season_transition;
   const season=tr?`${tr.from}: 1–${tr.day-1}; ${tr.to}: ${tr.day}–${month.days}`:month.season;
   const cell=(text,hazard=false)=>`<td${hazard?' class="wod-hazard"':''}>${esc(text)}</td>`;
-  return `<h3>${esc(month.name)} — ${month.days} дня</h3><p>${esc(climate.code+': '+climate.name)}. ${esc(climate.biome)}; ${esc(climate.terrain)}. ${esc(season)}. Неделя: 8 дней. Температура: °C.</p><div class="wod-scroll"><table><thead><tr><th>Неделя</th><th>День</th><th>Днём</th><th>Ночью</th><th>Осадки</th><th>Ветер</th><th>Примечания</th></tr></thead><tbody>${days.map(d=>`<tr>${cell(d.week)}${cell(d.day+' '+month.name+', '+d.weekday)}${cell(d.temperature_day.text,d.temperature_day.hazardous)}${cell(d.temperature_night.text,d.temperature_night.hazardous)}${cell(d.precipitation.label,d.precipitation.hazardous)}${cell(d.wind.label,d.wind.hazardous)}<td>${esc(d.note??(d.hazards.length?'Опасные условия: '+d.hazards.join(', '):'Без особых условий.'))}<small>${Object.keys(d.rolls).map((key,i)=>`${['День','Ночь','Осадки','Ветер'][i]}: ${d.rolls[key]}${d.modifiers[key]>=0?'+':''}${d.modifiers[key]}=${d.totals[key]}`).join('; ')}</small></td></tr>`).join('')}</tbody></table></div>`;
+  return `<h3>${esc(month.name)}${report.year===undefined?'':` ${esc(report.year)} И.К.`} — ${month.days} дня</h3><p>${esc(climate.code+': '+climate.name)}. ${esc(climate.biome)}; ${esc(climate.terrain)}. ${esc(season)}. Неделя: 8 дней. Температура: °C.</p><div class="wod-scroll"><table><thead><tr><th>Неделя</th><th>День</th><th>Днём</th><th>Ночью</th><th>Осадки</th><th>Ветер</th><th>Примечания</th></tr></thead><tbody>${days.map(d=>`<tr>${cell(d.week)}${cell(d.day+' '+month.name+', '+d.weekday)}${cell(d.temperature_day.text,d.temperature_day.hazardous)}${cell(d.temperature_night.text,d.temperature_night.hazardous)}${cell(d.precipitation.label,d.precipitation.hazardous)}${cell(d.wind.label,d.wind.hazardous)}<td>${esc(d.note??(d.hazards.length?'Опасные условия: '+d.hazards.join(', '):'Без особых условий.'))}<small>${Object.keys(d.rolls).map((key,i)=>`${['День','Ночь','Осадки','Ветер'][i]}: ${d.rolls[key]}${d.modifiers[key]>=0?'+':''}${d.modifiers[key]}=${d.totals[key]}`).join('; ')}</small></td></tr>`).join('')}</tbody></table></div>`;
 }
